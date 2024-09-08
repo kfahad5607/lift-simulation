@@ -61,22 +61,22 @@ for (let i = 0; i < totalFloors; i++) {
     floorsWithElevators.push([]);
 }
 
-elevatorStates.push({
-    floor: 4,
-    state: STATES.IDLE,
-    // destinations: [5, 6, 7],
-    destinations: []
-});
-elevatorStates.push({
-    floor: 1,
-    state: STATES.IDLE,
-    destinations: []
-});
-elevatorStates.push({
-    floor: 1,
-    state: STATES.DOWN,
-    destinations: []
-});
+function addElevator(floor) {
+    elevatorStates.push({
+        floor: floor,
+        state: STATES.IDLE,
+        // requestedDir: STATES.IDLE,
+        destinations: {
+            [STATES.UP]: [],
+            [STATES.DOWN]: []
+        }
+    });
+
+}
+
+addElevator(1);
+addElevator(1);
+addElevator(1);
 
 // for (let i = 0; i < totalElevators; i++) {
 // elevatorStates.push({
@@ -90,140 +90,237 @@ const getElevator = (floor, floorsWithElevators) => {
 
 };
 
-const openDoors = (elevatorIdx) => {
+const openDoors = (elevatorIdx, requestedDir) => {
     const elevator = elevatorStates[elevatorIdx];
     console.log("Opening doors for ", elevatorIdx + 1, { currentFloor: elevator.floor });
 
     elevatorEls[elevatorIdx].classList.add('open');
     setTimeout(() => {
-        closeDoors(elevatorIdx);
+        closeDoors(elevatorIdx, requestedDir);
     }, 3000);
 };
 
-const closeDoors = (elevatorIdx) => {
+const closeDoors = (elevatorIdx, requestedDir) => {
     const elevator = elevatorStates[elevatorIdx];
     console.log("Closing doors for ", elevatorIdx + 1, elevator);
 
 
     elevatorEls[elevatorIdx].classList.remove('open');
     setTimeout(() => {
+        let elevatorDir = elevator.state;
         elevator.state = STATES.IDLE;
-        if (elevator.destinations.length > 0) {
-            reachFloor(elevatorIdx);
-        }
+
+        // if (elevator.destinations[elevatorDir].length > 0) {
+        reachFloor(elevatorIdx, requestedDir);
+        // }
     }, 1400);
 };
 
-const worker = (elevatorIdx, toFloor) => {
+const worker = (elevatorIdx, toFloor, requestedDir) => {
     const translateBy = -LIFT_HEIGHT * (toFloor - 1);
     elevatorEls[elevatorIdx].style.transform = `translateY(${translateBy}px)`;
 
     setTimeout(() => {
-        callback(elevatorIdx, toFloor);
+        callback(elevatorIdx, toFloor, requestedDir);
     }, 1500);
 };
 
-const callback = (elevatorIdx, lastFloor) => {
+const callback = (elevatorIdx, lastFloor, requestedDir) => {
     const elevator = elevatorStates[elevatorIdx];
+    const elevatorDir = elevator.state;
     elevator.floor = lastFloor;
-    if (elevator.destinations.includes(lastFloor)) {
-        console.log("elevator ", elevator);
 
-        elevator.destinations = elevator.destinations.filter(dest => dest !== lastFloor);
+    if (elevator.destinations[requestedDir].includes(lastFloor)) {
+        elevator.destinations[requestedDir] = elevator.destinations[requestedDir].filter(dest => dest !== lastFloor);
+        setTimeout(() => openDoors(elevatorIdx, requestedDir), 650);
 
-        setTimeout(() => openDoors(elevatorIdx), 650);
         return;
     };
 
-    const toFloor = elevator.state === STATES.UP ? lastFloor + 1 : lastFloor - 1;
-    worker(elevatorIdx, toFloor);
+    const toFloor = elevatorDir === STATES.UP ? lastFloor + 1 : lastFloor - 1;
+    worker(elevatorIdx, toFloor, requestedDir);
 };
 
-const reachFloor = (elevatorIdx) => {
+const reachFloor = (elevatorIdx, requestedDir) => {
     const elevator = elevatorStates[elevatorIdx];
+
     if (elevator.state !== STATES.IDLE) return;
 
     const fromFloor = elevator.floor;
-    const destination = elevator.destinations[0] || fromFloor;
-    const diff = destination - fromFloor;
+    let destination = elevator.destinations[requestedDir][0];
+    // elevator.state = requestedDir;
 
-    let toFloor = fromFloor + 1;
+    if (!destination) {
+        // let _requestedDir = requestedDir === STATES.UP ? STATES.DOWN : STATES.UP;
+        requestedDir = requestedDir === STATES.UP ? STATES.DOWN : STATES.UP;
+        destination = elevator.destinations[requestedDir][0];
+
+        if (!destination) {
+            elevator.state = STATES.IDLE;
+            return;
+        }
+
+        // elevator.state = _requestedDir;
+    }
+
+    const diff = destination - fromFloor;
     if (diff === 0) {
+        elevator.destinations[elevator.state] = elevator.destinations[elevator.state].filter(dest => dest !== destination);
         elevator.state = STATES.IDLE;
-        elevator.destinations = elevator.destinations.filter(dest => dest !== destination);
         return;
     }
-    else if (diff < 0) {
-        toFloor = fromFloor - 1;
+
+    let toFloor = fromFloor + 1;
+    if (diff < 0) {
         elevator.state = STATES.DOWN;
+        toFloor = fromFloor - 1;
     }
     else {
         elevator.state = STATES.UP;
+        toFloor = fromFloor + 1;
     }
-    worker(elevatorIdx, toFloor);
+
+
+    // let toFloor = fromFloor + 1;
+    // if (elevator.state === STATES.DOWN) {
+    //     toFloor = fromFloor - 1;
+    // }
+    worker(elevatorIdx, toFloor, requestedDir);
 };
 
+
 const handleUp = (event) => {
-    const currentFloor = parseInt(event.target.dataset.floor);
-    console.log("handleUp ", currentFloor);
-
-    let elevatorIdx = 0;
-    let affinityScore = Infinity;
-    for (let i = 0; i < elevatorStates.length; i++) {
-        // currentFloor
-        // currentDirection
-        let lastDestination = elevatorStates[i].destinations[0] || elevatorStates[i].floor;
-        let currentAffinityScore = Math.abs(currentFloor - elevatorStates[i].floor) + (2 * Math.abs(elevatorStates[i].floor - lastDestination));
-
-        if (Math.abs(currentAffinityScore) < affinityScore) {
-            affinityScore = currentAffinityScore;
-            elevatorIdx = i;
-        }
-
-        console.log("diff ", { currentAffinityScore, i, destinations: elevatorStates[i].destinations, lastDestination });
-
-
-        continue;
-        // let currentAffinityScore = currentFloor;
-
-        // if (diff > 0) {
-        //     if (elevatorStates[i].state === STATES.UP) {
-        //         currentAffinityScore = currentFloor - elevatorStates[i].floor - 1;
-        //     }
-        //     else {
-        //         currentAffinityScore = (currentFloor + elevatorStates[i].floor);
-        //     }
-        // }
-        // else if (diff < 0) {
-        //     if (elevatorStates[i].state === STATES.UP) {
-        //         currentAffinityScore = (totalFloors - currentFloor);
-        //     }
-        //     else {
-        //         currentAffinityScore = currentFloor - elevatorStates[i].floor - 1;
-        //     }
-        // }
-
-
-        console.log("currentAffinityScore ", { i, currentAffinityScore });
-
-    }
-
-    if (!elevatorStates[elevatorIdx].destinations.includes(currentFloor)) {
-        elevatorStates[elevatorIdx].destinations.push(currentFloor);
-        elevatorStates[elevatorIdx].destinations.sort((a, b) => a - b);
-
-        reachFloor(elevatorIdx);
-    }
-    console.log("Best match elevator is ", elevatorIdx + 1, elevatorStates[elevatorIdx].destinations);
-
-
-    // const translateBy = -100 * currentFloor;
-    // elevatorEls[currentFloor - 1].style.transform = `translateY(${translateBy}%)`
+    handleBtnClick(event, STATES.UP);
 };
 
 const handleDown = (event) => {
-    console.log("handleDown ", event);
+    handleBtnClick(event, STATES.DOWN);
 };
+
+const getScore = (elevatorIdx, requestedFloor, requestedDir) => {
+    const elevator = elevatorStates[elevatorIdx];
+
+    const elevatorDir = elevator.state;
+    const diff = requestedFloor - elevator.floor;
+
+    const requiredDir = diff >= 0 ? STATES.UP : STATES.DOWN;
+
+    // let lastDestination = elevator.destinations[elevatorDir].at(-1);
+    // if (!lastDestination) {
+    //     let _elevatorDir = STATES.DOWN;
+    //     if (elevatorDir === STATES.DOWN) _elevatorDir = STATES.UP;
+
+    //     lastDestination = elevator.destinations[_elevatorDir].at(-1);
+    // }
+
+    console.log(("getScore ==> ", { requestedDir, requiredDir, elevatorDir, requestedFloor }));
+
+
+    let score = Math.abs(requestedFloor - elevator.floor);
+    if (elevatorDir === requiredDir) score--;
+    else if (elevatorDir !== STATES.IDLE) {
+        let lastDestination = elevator.destinations[elevatorDir].at(-1);
+        if (lastDestination) {
+            score = score + (2 * Math.abs(elevator.floor - lastDestination));
+        }
+        else {
+            // score += 1
+        }
+    }
+
+    if (requestedDir !== elevatorDir && elevatorDir !== STATES.IDLE) {
+        let lastDestination = elevator.destinations[elevatorDir].at(-1);
+        if (lastDestination) {
+            score = score + (2 * Math.abs(elevator.floor - lastDestination));
+        }
+        else {
+            // score += 1
+        }
+    }
+
+    return score;
+};
+
+
+const handleBtnClick = (event, destDir) => {
+    const currentFloor = parseInt(event.target.dataset.floor);
+    console.log("handleBtnClic-k ", currentFloor, destDir);
+
+
+    let elevatorIdx = 0;
+    let minScore = Infinity;
+    for (let i = 0; i < elevatorStates.length; i++) {
+        const currentScore = getScore(i, currentFloor, destDir);
+
+        if (Math.abs(currentScore) < minScore) {
+            minScore = currentScore;
+            elevatorIdx = i;
+        }
+
+        console.log("diff ", { currentScore, i, destinations: elevatorStates[i].destinations });
+    }
+
+    let sorter = (a, b) => a - b;
+    if (destDir === STATES.DOWN) {
+        sorter = (a, b) => b - a;
+    }
+
+
+    if (!elevatorStates[elevatorIdx].destinations[destDir].includes(currentFloor)) {
+        elevatorStates[elevatorIdx].destinations[destDir].push(currentFloor);
+        elevatorStates[elevatorIdx].destinations[destDir].sort(sorter);
+
+        if (elevatorStates[elevatorIdx].state === STATES.IDLE) {
+            // elevatorStates[elevatorIdx].state = destDir;
+            reachFloor(elevatorIdx, destDir);
+        }
+    }
+    console.log("Best match elevator is ", elevatorIdx + 1, elevatorStates[elevatorIdx].destinations);
+};
+
+
+// const handleBtnClick = (event, destDir) => {
+//     const currentFloor = parseInt(event.target.dataset.floor);
+//     console.log("handleBtnClic-k ", currentFloor, destDir);
+
+//     let elevatorIdx = 0;
+//     let affinityScore = Infinity;
+//     for (let i = 0; i < elevatorStates.length; i++) {
+//         const elevator = elevatorStates[i];
+//         const elevatorDir = elevator.state;
+
+//         const diff = currentFloor - elevator.floor;
+//         let requiredDir = STATES.UP;
+//         if (diff < 0) {
+//             requiredDir = STATES.DOWN;
+//         }
+
+//         // elevatorDir === requiredDir // goood
+//         // elevatorDir === requiredDir // goood
+
+
+
+//         // currentFloor
+//         // currentDirection
+//         let lastDestination = elevator.destinations[0] || elevator.floor;
+//         let currentAffinityScore = Math.abs(currentFloor - elevator.floor) + (2 * Math.abs(elevator.floor - lastDestination));
+
+//         if (Math.abs(currentAffinityScore) < affinityScore) {
+//             affinityScore = currentAffinityScore;
+//             elevatorIdx = i;
+//         }
+
+//         console.log("diff ", { currentAffinityScore, i, destinations: elevator.destinations, lastDestination });
+//         continue;
+//     }
+
+//     if (!elevatorStates[elevatorIdx].destinations.includes(currentFloor)) {
+//         elevatorStates[elevatorIdx].destinations.push(currentFloor);
+//         elevatorStates[elevatorIdx].destinations.sort((a, b) => a - b);
+//         reachFloor(elevatorIdx);
+//     }
+//     console.log("Best match elevator is ", elevatorIdx + 1, elevatorStates[elevatorIdx].destinations);
+// };
 
 const floorsFragment = new DocumentFragment();
 for (let i = 0; i < totalFloors; i++) {
@@ -238,7 +335,7 @@ for (let i = 0; i < totalFloors; i++) {
     const btnDown = floorEl.querySelector('.elevator-simulation__floor-btn--down');
 
     btnUp.addEventListener('click', handleUp);
-    btnDown.addEventListener('click', handleUp);
+    btnDown.addEventListener('click', handleDown);
 
     floorsFragment.appendChild(floorEl);
 }
