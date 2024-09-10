@@ -9,11 +9,33 @@
 </head>
 
 <body>
-    <div class="container">
-        <div class="elevator-simulation">
-            <div id="elevator-simulation-content" class="elevator-simulation__content">
-                <div class="elevator-simulation__floors"></div>
-                <!-- <div class="elevator-simulation__floors">
+    <div class="container elevator-simulation">
+        <form method="get" action="/index.html" id="elevator-simulation-form" class="elevator-simulation__form">
+            <div class="elevator-simulation__form-wrap">
+                <div class="elevator-simulation__form-header">
+                    <div class="elevator-simulation__form-heading">Schindler's Lifts</div>
+                    <div class="elevator-simulation__form-text">Get ready to lift your spirits… and your floors!</div>
+                </div>
+                <div class="elevator-simulation__form-body">
+                    <div class="elevator-simulation__form-item">
+                        <div class="elevator-simulation__form-label">Floors</div>
+                        <input type="number" name="floors" min="1" value="6" placeholder="How tall is your building?"
+                            class="elevator-simulation__form-input">
+                    </div>
+                    <div class="elevator-simulation__form-item">
+                        <div class="elevator-simulation__form-label">Lifts</div>
+                        <input type="number" name="lifts" min="1" value="2" placeholder="How many lifts for liftoff?"
+                            class="elevator-simulation__form-input">
+                    </div>
+                </div>
+                <div class="elevator-simulation__form-footer">
+                    <button class="elevator-simulation__form-btn">Lift Off!</button>
+                </div>
+            </div>
+        </form>
+        <div id="elevator-simulation-content" class="elevator-simulation__content">
+            <div class="elevator-simulation__floors"></div>
+            <!-- <div class="elevator-simulation__floors">
                     <div class="elevator-simulation__floor">
                         <div class="elevator-simulation__floor-top">
                             <div class="elevator-simulation__floor-btns">
@@ -92,9 +114,8 @@
                     <div class="elevator-simulation__elevator"></div>
                     <div class="elevator-simulation__elevator"></div>
                 </div> -->
-                <div class="elevator-simulation__elevators">
+            <div class="elevator-simulation__elevators">
 
-                </div>
             </div>
         </div>
     </div>
