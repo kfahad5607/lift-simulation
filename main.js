@@ -1,4 +1,6 @@
 const LIFT_HEIGHT = 11.8; // rem
+const LIFT_WIDTH = 6;
+const LIFT_GAP = 5;
 const CLOSE_DOOR_AFTER_DURATION = 3500;
 const MOVE_LIFT_AFTER_DOOR_CLOSE_DURATION = 1400;
 const OPEN_DOOR_AFTER_DURATION = 700;
@@ -18,16 +20,11 @@ const totalFloors = Math.abs(parseInt(params.get('floors')));
 const totalElevators = Math.abs(parseInt(params.get('lifts')));
 
 const getElevatorMarkup = ({ elevatorIdx }) => {
-    const START_OFFSET = 10;
-    const ELEVATOR_WIDTH = 6;
-    const ELEVATOR_GAP = 5;
-
     const elevator = elevators[elevatorIdx];
-    const left = START_OFFSET + ((elevatorIdx) * (ELEVATOR_WIDTH + ELEVATOR_GAP));
-    const translateBy = -LIFT_HEIGHT * (elevator.floor - 1);
+    const translateX = (elevatorIdx) * (LIFT_WIDTH + LIFT_GAP);
+    const translateY = -LIFT_HEIGHT * (elevator.floor - 1);
 
-    const style = `left: ${left}rem; transform: translateY(${translateBy}rem)`;
-
+    const style = `transform: translate(${translateX}rem, ${translateY}rem)`;
 
     return `
     <div data-floor='${elevator.floor}' style='${style}' class="elevator-simulation__elevator">
@@ -92,8 +89,9 @@ const closeDoors = (elevatorIdx) => {
 };
 
 const worker = (elevatorIdx, toFloor) => {
-    const translateBy = -LIFT_HEIGHT * (toFloor - 1);
-    elevatorEls[elevatorIdx].style.transform = `translateY(${translateBy}rem)`;
+    const translateX = (elevatorIdx) * (LIFT_WIDTH + LIFT_GAP);
+    const translateY = -LIFT_HEIGHT * (toFloor - 1);
+    elevatorEls[elevatorIdx].style.transform = `translate(${translateX}rem, ${translateY}rem)`
 
     setTimeout(() => {
         callback(elevatorIdx, toFloor);
@@ -236,7 +234,7 @@ const handleBtnClick = (event, destDir) => {
         elevators[elevatorIdx].destinations[destDir].sort(sorter);
 
         if (elevators[elevatorIdx].state === STATES.IDLE) {
-        // elevators[elevatorIdx].state = destDir;
+            // elevators[elevatorIdx].state = destDir;
             reachFloor(elevatorIdx, destDir);
         }
     }
@@ -328,6 +326,16 @@ function generateEntities() {
 
     floorsEl.appendChild(floorsFragment);
     elevatorsEl.appendChild(elevatorsFragment);
+
+    const width = (LIFT_WIDTH + LIFT_GAP) * totalElevators;
+
+    elevatorSimulationContent.style.minWidth = `${width + 20}rem`;
+
+    window.scrollTo({
+        top: document.body.scrollHeight,
+        left: 0,
+        behavior: 'smooth'
+    });
 }
 
 function removeEl(selector) {
