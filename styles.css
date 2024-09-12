@@ -241,3 +241,25 @@ body {
 .elevator-simulation__form-btn:hover {
   background-color: rgba(24, 24, 27, 0.9);
 }
+
+.elevator-simulation__form-socials{
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 2rem;
+
+}
+
+.elevator-simulation__form-social{
+  width: 2.5rem;
+  transition: transform .2s ease-in;
+}
+
+.elevator-simulation__form-social:hover{
+  transform: scale(1.08);
+}
+
+.elevator-simulation__form-social img{
+  display: block;
+  width: 100%;
+}
