@@ -1,13 +1,12 @@
-const LIFT_HEIGHT = 11.8; // rem
-const LIFT_WIDTH = 6;
-const LIFT_GAP = 5;
-const CLOSE_DOOR_AFTER_DURATION = 3500;
-const MOVE_LIFT_AFTER_DOOR_CLOSE_DURATION = 1400;
-const OPEN_DOOR_AFTER_DURATION = 700;
-const FLOOR_REACH_DURATION = 1500;
+const LIFT_HEIGHT = 13.8; // rem
+const LIFT_WIDTH = 6; // rem
+const LIFT_GAP = 5; // rem
+const CLOSE_DOOR_AFTER_DURATION = 3500; // ms
+const MOVE_LIFT_AFTER_DOOR_CLOSE_DURATION = 1400; // ms
+const OPEN_DOOR_AFTER_DURATION = 700; // ms
+const FLOOR_REACH_DURATION = 2000; // ms
 
 const floorEls = [];
-const elevatorEls = [];
 const elevators = [];
 const STATES = {
     DOWN: -1,
@@ -16,18 +15,24 @@ const STATES = {
 };
 
 const params = new URLSearchParams(window.location.search);
-const totalFloors = Math.abs(parseInt(params.get('floors')));
-const totalElevators = Math.abs(parseInt(params.get('lifts')));
+const totalFloors = Math.abs(parseInt(params.get("floors")));
+const totalElevators = Math.abs(parseInt(params.get("lifts")));
 
 const getElevatorMarkup = ({ elevatorIdx }) => {
     const elevator = elevators[elevatorIdx];
-    const translateX = (elevatorIdx) * (LIFT_WIDTH + LIFT_GAP);
+    const translateX = elevatorIdx * (LIFT_WIDTH + LIFT_GAP);
     const translateY = -LIFT_HEIGHT * (elevator.floor - 1);
 
     const style = `transform: translate(${translateX}rem, ${translateY}rem)`;
 
     return `
-    <div data-floor='${elevator.floor}' style='${style}' class="elevator-simulation__elevator">
+    <div style='${style}' class="elevator-simulation__elevator">
+        <div class="elevator-simulation__elevator-header">
+            <div class="elevator-simulation__indicator">
+                <div class="elevator-simulation__indicator-floor">${elevator.floor}</div>
+                <div class="elevator-simulation__indicator-direction">&nbsp;</div>
+            </div>
+        </div>
         <div class="elevator-simulation__elevator-door-wrap">
             <div class="elevator-simulation__elevator-door elevator-simulation__elevator-door--left"></div>
             <div class="elevator-simulation__elevator-door elevator-simulation__elevator-door--right"></div>
@@ -37,8 +42,12 @@ const getElevatorMarkup = ({ elevatorIdx }) => {
 };
 
 const getFloorMarkup = ({ currentFloor, isFirstFloor, isLastFloor }) => {
-    const upBtn = isLastFloor ? '' : `<button data-floor='${currentFloor}' class="elevator-simulation__floor-btn elevator-simulation__floor-btn--up">Up</button>`;
-    const downBtn = isFirstFloor ? '' : `<button data-floor='${currentFloor}' class="elevator-simulation__floor-btn elevator-simulation__floor-btn--down">Down</button>`;
+    const upBtn = isLastFloor
+        ? ""
+        : `<button id='up-${currentFloor}' data-floor='${currentFloor}' class="elevator-simulation__floor-btn elevator-simulation__floor-btn--up">Up</button>`;
+    const downBtn = isFirstFloor
+        ? ""
+        : `<button id='down-${currentFloor}' data-floor='${currentFloor}' class="elevator-simulation__floor-btn elevator-simulation__floor-btn--down">Down</button>`;
 
     return `
     <div class="elevator-simulation__floor">
@@ -58,21 +67,35 @@ const getFloorMarkup = ({ currentFloor, isFirstFloor, isLastFloor }) => {
 `;
 };
 
+const updateElevatorIndicator = (elevatorIdx) => {
+    const elevator = elevators[elevatorIdx];
+    const el = elevator.el;
+
+    let dir = '&nbsp;';
+    if (elevator.state === STATES.UP) dir = '&uArr;';
+    else if (elevator.state === STATES.DOWN) dir = '&dArr;';
+    const indicatorEl = el.querySelector('.elevator-simulation__indicator');
+    indicatorEl.children[0].textContent = elevator.floor;
+    indicatorEl.children[1].innerHTML = dir;
+};
+
 function addElevator(floor) {
     elevators.push({
         floor: floor,
         state: STATES.IDLE,
-        requestedDir: STATES.IDLE,
+        // requestedDir: STATES.IDLE,
+        requestedDirs: [],
         destinations: {
             [STATES.UP]: [],
-            [STATES.DOWN]: []
-        }
+            [STATES.DOWN]: [],
+        },
+        el: null
     });
-
 }
 
+
 const openDoors = (elevatorIdx) => {
-    elevatorEls[elevatorIdx].classList.add('open');
+    elevators[elevatorIdx].el.classList.add("open");
     setTimeout(() => {
         closeDoors(elevatorIdx);
     }, CLOSE_DOOR_AFTER_DURATION);
@@ -81,34 +104,54 @@ const openDoors = (elevatorIdx) => {
 const closeDoors = (elevatorIdx) => {
     const elevator = elevators[elevatorIdx];
 
-    elevatorEls[elevatorIdx].classList.remove('open');
+    elevators[elevatorIdx].el.classList.remove("open");
     setTimeout(() => {
         elevator.state = STATES.IDLE;
-        reachFloor(elevatorIdx, elevator.requestedDir);
+
+        updateElevatorIndicator(elevatorIdx);
+        // reachFloor(elevatorIdx, elevator.requestedDir);
+        reachFloor(elevatorIdx, elevator.requestedDirs.pop());
     }, MOVE_LIFT_AFTER_DOOR_CLOSE_DURATION);
 };
 
 const worker = (elevatorIdx, toFloor) => {
-    const translateX = (elevatorIdx) * (LIFT_WIDTH + LIFT_GAP);
+    const translateX = elevatorIdx * (LIFT_WIDTH + LIFT_GAP);
     const translateY = -LIFT_HEIGHT * (toFloor - 1);
-    elevatorEls[elevatorIdx].style.transform = `translate(${translateX}rem, ${translateY}rem)`
+    elevators[
+        elevatorIdx
+    ].el.style.transform = `translate(${translateX}rem, ${translateY}rem)`;
 
     setTimeout(() => {
         callback(elevatorIdx, toFloor);
     }, FLOOR_REACH_DURATION);
 };
 
+const resetButtons = (floor, dir) => {
+    let dirStr = dir === STATES.UP ? 'up' : 'down';
+    document.getElementById(`${dirStr}-${floor}`).classList.remove('active');
+    // if (elevators.length === 1) {
+    //     dirStr = dirStr === 'up' ? 'down' : 'up';
+    //     document.getElementById(`${dirStr}-${floor}`)?.classList.remove('active');
+    // }
+};
+
 const callback = (elevatorIdx, lastFloor) => {
+    updateElevatorIndicator(elevatorIdx);
+
     const elevator = elevators[elevatorIdx];
     const elevatorDir = elevator.state;
     elevator.floor = lastFloor;
 
-    if (elevator.destinations[elevator.requestedDir].includes(lastFloor)) {
-        elevator.destinations[elevator.requestedDir] = elevator.destinations[elevator.requestedDir].filter(dest => dest !== lastFloor);
+
+    let requestedDir = elevator.requestedDirs.at(-1);
+
+    if (elevator.destinations[requestedDir].includes(lastFloor)) {
+        elevator.destinations[requestedDir] = elevator.destinations[requestedDir].filter((dest) => dest !== lastFloor);
         setTimeout(() => openDoors(elevatorIdx), OPEN_DOOR_AFTER_DURATION);
+        resetButtons(lastFloor, requestedDir);
 
         return;
-    };
+    }
 
     const toFloor = elevatorDir === STATES.UP ? lastFloor + 1 : lastFloor - 1;
     worker(elevatorIdx, toFloor);
@@ -116,7 +159,6 @@ const callback = (elevatorIdx, lastFloor) => {
 
 const reachFloor = (elevatorIdx, requestedDir) => {
     const elevator = elevators[elevatorIdx];
-
     if (elevator.state !== STATES.IDLE) return;
 
     const fromFloor = elevator.floor;
@@ -131,12 +173,13 @@ const reachFloor = (elevatorIdx, requestedDir) => {
             return;
         }
     }
-    elevator.requestedDir = requestedDir;
+    elevator.requestedDirs.push(requestedDir);
 
     const diff = destination - fromFloor;
     if (diff === 0) {
-        elevator.destinations[elevator.state] = elevator.destinations[elevator.state].filter(dest => dest !== destination);
+        elevator.destinations[requestedDir] = elevator.destinations[requestedDir].filter((dest) => dest !== destination);
         elevator.state = STATES.IDLE;
+        resetButtons(destination, requestedDir);
         return;
     }
 
@@ -144,12 +187,12 @@ const reachFloor = (elevatorIdx, requestedDir) => {
     if (diff < 0) {
         elevator.state = STATES.DOWN;
         toFloor = fromFloor - 1;
-    }
-    else {
+    } else {
         elevator.state = STATES.UP;
         toFloor = fromFloor + 1;
     }
 
+    updateElevatorIndicator(elevatorIdx);
     worker(elevatorIdx, toFloor);
 };
 
@@ -166,49 +209,39 @@ const getScore = (elevatorIdx, requestedFloor, requestedDir) => {
 
     const elevatorDir = elevator.state;
     const diff = requestedFloor - elevator.floor;
-
     const requiredDir = diff >= 0 ? STATES.UP : STATES.DOWN;
-
-
-
-    console.log("getScore ==> ", { requestedDir, elevatorRequestedDir: elevator.requestedDir, requiredDir, elevatorDir, requestedFloor, elevatorFloor: elevator.floor, });
-
 
     let score = Math.abs(requestedFloor - elevator.floor);
     if (elevatorDir === requiredDir) score--;
     else if (elevatorDir !== STATES.IDLE) {
-        // let lastDestination = elevator.destinations[elevatorDir].at(-1);
-        let lastDestination = totalFloors;
+        let lastDestination = elevator.destinations[elevatorDir].at(-1);
+        // let lastDestination = totalFloors;
         if (lastDestination) {
-            score += (2 * Math.abs(elevator.floor - lastDestination));
+            score += 2 * Math.abs(elevator.floor - lastDestination);
             score += elevator.destinations[elevatorDir].length;
             // score += totalFloors; // can this be done?
         }
-        else {
-            // score += 1
-        }
     }
 
-    if (requestedDir !== elevator.requestedDir && elevator.requestedDir !== STATES.IDLE) {
-        // let lastDestination = elevator.destinations[elevator.requestedDir].at(-1);
+    const _requestedDir = elevator.requestedDirs.at(-1);
+    if (
+        ![requestedDir, STATES.IDLE, undefined].includes(_requestedDir)
+    ) {
         let lastDestination = totalFloors;
         if (lastDestination) {
-            score += (2 * Math.abs(elevator.floor - lastDestination));
-            score += elevator.destinations[elevator.requestedDir].length;
-        }
-        else {
-            // score += 1
+            score += 2 * Math.abs(elevator.floor - lastDestination);
+            score += elevator.destinations[_requestedDir].length;
         }
     }
 
     return score;
 };
 
-
 const handleBtnClick = (event, destDir) => {
-    const currentFloor = parseInt(event.target.dataset.floor);
-    console.log("handleBtnClic-k ", currentFloor, destDir);
+    if (event.target.classList.contains('active')) return;
 
+    event.target.classList.add('active');
+    const currentFloor = parseInt(event.target.dataset.floor);
 
     let elevatorIdx = 0;
     let minScore = Infinity;
@@ -219,8 +252,6 @@ const handleBtnClick = (event, destDir) => {
             minScore = currentScore;
             elevatorIdx = i;
         }
-
-        console.log("diff ", { currentScore, i, destinations: elevators[i].destinations });
     }
 
     let sorter = (a, b) => a - b;
@@ -228,83 +259,49 @@ const handleBtnClick = (event, destDir) => {
         sorter = (a, b) => b - a;
     }
 
+    const elevator = elevators[elevatorIdx];
+    if (!elevator.destinations[destDir].includes(currentFloor)) {
+        elevator.destinations[destDir].push(currentFloor);
+        elevator.destinations[destDir].sort(sorter);
 
-    if (!elevators[elevatorIdx].destinations[destDir].includes(currentFloor)) {
-        elevators[elevatorIdx].destinations[destDir].push(currentFloor);
-        elevators[elevatorIdx].destinations[destDir].sort(sorter);
-
-        if (elevators[elevatorIdx].state === STATES.IDLE) {
-            // elevators[elevatorIdx].state = destDir;
+        if (elevator.state === STATES.IDLE) {
             reachFloor(elevatorIdx, destDir);
         }
     }
-    console.log("Best match elevator is ", elevatorIdx + 1, elevators[elevatorIdx].destinations);
+
+    if (elevator.state === currentFloor) {
+        resetButtons(currentFloor, destDir);
+    }
 };
-
-
-// const handleBtnClick = (event, destDir) => {
-//     const currentFloor = parseInt(event.target.dataset.floor);
-//     console.log("handleBtnClic-k ", currentFloor, destDir);
-
-//     let elevatorIdx = 0;
-//     let affinityScore = Infinity;
-//     for (let i = 0; i < elevators.length; i++) {
-//         const elevator = elevators[i];
-//         const elevatorDir = elevator.state;
-
-//         const diff = currentFloor - elevator.floor;
-//         let requiredDir = STATES.UP;
-//         if (diff < 0) {
-//             requiredDir = STATES.DOWN;
-//         }
-
-//         // elevatorDir === requiredDir // goood
-//         // elevatorDir === requiredDir // goood
-
-
-
-//         // currentFloor
-//         // currentDirection
-//         let lastDestination = elevator.destinations[0] || elevator.floor;
-//         let currentAffinityScore = Math.abs(currentFloor - elevator.floor) + (2 * Math.abs(elevator.floor - lastDestination));
-
-//         if (Math.abs(currentAffinityScore) < affinityScore) {
-//             affinityScore = currentAffinityScore;
-//             elevatorIdx = i;
-//         }
-
-//         console.log("diff ", { currentAffinityScore, i, destinations: elevator.destinations, lastDestination });
-//         continue;
-//     }
-
-//     if (!elevators[elevatorIdx].destinations.includes(currentFloor)) {
-//         elevators[elevatorIdx].destinations.push(currentFloor);
-//         elevators[elevatorIdx].destinations.sort((a, b) => a - b);
-//         reachFloor(elevatorIdx);
-//     }
-//     console.log("Best match elevator is ", elevatorIdx + 1, elevators[elevatorIdx].destinations);
-// };
 
 function generateEntities() {
     const floorsFragment = new DocumentFragment();
     for (let i = 0; i < totalFloors; i++) {
-        const tempDiv = document.createElement('div');
+        const tempDiv = document.createElement("div");
         const currentFloor = totalFloors - i;
 
         const isFirstFloor = currentFloor === 1;
         const isLastFloor = currentFloor === totalFloors;
 
-        tempDiv.innerHTML = getFloorMarkup({ currentFloor, isFirstFloor, isLastFloor });
+        tempDiv.innerHTML = getFloorMarkup({
+            currentFloor,
+            isFirstFloor,
+            isLastFloor,
+        });
         const floorEl = tempDiv.children[0];
 
         if (!isLastFloor) {
-            const btnUp = floorEl.querySelector('.elevator-simulation__floor-btn--up');
-            btnUp.addEventListener('click', handleUp);
+            const btnUp = floorEl.querySelector(
+                ".elevator-simulation__floor-btn--up"
+            );
+            btnUp.addEventListener("click", handleUp);
         }
 
         if (!isFirstFloor) {
-            const btnDown = floorEl.querySelector('.elevator-simulation__floor-btn--down');
-            btnDown.addEventListener('click', handleDown);
+            const btnDown = floorEl.querySelector(
+                ".elevator-simulation__floor-btn--down"
+            );
+            btnDown.addEventListener("click", handleDown);
         }
 
         floorsFragment.appendChild(floorEl);
@@ -312,17 +309,23 @@ function generateEntities() {
 
     const elevatorsFragment = new DocumentFragment();
     elevators.forEach((elevator, elevatorIdx) => {
-        const tempDiv = document.createElement('div');
+        const tempDiv = document.createElement("div");
         tempDiv.innerHTML = getElevatorMarkup({ elevatorIdx: elevatorIdx });
 
         const elevatorEl = tempDiv.children[0];
         elevatorsFragment.appendChild(elevatorEl);
-        elevatorEls.push(elevatorEl);
+        elevators[elevatorIdx].el = elevatorEl;
     });
 
-    const elevatorSimulationContent = document.getElementById('elevator-simulation-content');
-    const floorsEl = elevatorSimulationContent.querySelector('.elevator-simulation__floors');
-    const elevatorsEl = elevatorSimulationContent.querySelector('.elevator-simulation__elevators');
+    const elevatorSimulationContent = document.getElementById(
+        "elevator-simulation-content"
+    );
+    const floorsEl = elevatorSimulationContent.querySelector(
+        ".elevator-simulation__floors"
+    );
+    const elevatorsEl = elevatorSimulationContent.querySelector(
+        ".elevator-simulation__elevators"
+    );
 
     floorsEl.appendChild(floorsFragment);
     elevatorsEl.appendChild(elevatorsFragment);
@@ -334,7 +337,7 @@ function generateEntities() {
     window.scrollTo({
         top: document.body.scrollHeight,
         left: 0,
-        behavior: 'smooth'
+        behavior: "smooth",
     });
 }
 
@@ -357,14 +360,12 @@ function setupForm() {
     removeEl("#elevator-simulation-content");
 
     const url = new URL(window.location.href);
-    url.search = '';
-    // Use the History API to update the URL without reloading the page
-    window.history.replaceState({}, '', url.toString());
+    url.search = "";
+    window.history.replaceState({}, "", url.toString());
 }
 
 if (totalFloors && totalElevators) {
     setupSimulation();
-}
-else {
+} else {
     setupForm();
 }
