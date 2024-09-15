@@ -64,10 +64,14 @@ body {
   background-color: #f4f4f5;
 }
 
+.elevator-simulation__floor{
+  height: 14rem;
+}
+
 .elevator-simulation__floor-top {
   display: flex;
   gap: 5rem;
-  height: 12rem;
+  height: 100%;
 }
 
 
@@ -77,16 +81,24 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 1rem 1rem;
+  line-height: 1.8rem;
+  position: relative;
+  padding-right: 6.2rem;
 }
 
 .elevator-simulation__floor-base {
   flex-grow: 1;
-  height: 0.2rem;
+  height: .2rem;
   background-color: #000;
+  
 }
 
 .elevator-simulation__floor-label {
+  position: absolute;
+  right: 0;
   font-weight: 500;
+  padding-left: 1rem;
+  background-color: #ffffff;
 }
 
 .elevator-simulation__floor-btns {
@@ -122,6 +134,7 @@ body {
   gap: 3rem;
   position: absolute;
   bottom: 3rem;
+  bottom: 2rem;
 }
 
 .elevator-simulation__elevator {
