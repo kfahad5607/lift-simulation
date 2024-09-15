@@ -214,6 +214,8 @@ const calculateTimeNeeded = (elevatorIdx, destinations) => {
 
     destinations.forEach((d, dIdx) => {
         let diff = Math.abs(d - currentFloor);
+        // if (diff === 0) return;
+
         let timeNeeded = (diff * FLOOR_REACH_DURATION) + OPEN_DOOR_AFTER_DURATION;
         timeNeeded += DOOR_OPEN_CLOSE_DURATION + (CLOSE_DOOR_AFTER_DURATION - DOOR_OPEN_CLOSE_DURATION);
         timeNeeded += DOOR_OPEN_CLOSE_DURATION;
@@ -283,6 +285,12 @@ const handleBtnClick = (event, destDir) => {
     let elevatorIdx = 0;
     let minScore = Infinity;
     for (let i = 0; i < elevators.length; i++) {
+        let elevator = elevators[i];
+
+        if (elevator.floor === currentFloor && (elevator.state === STATES.IDLE || elevator.destinations[destDir].at(-1) === currentFloor)) {
+            elevatorIdx = i;
+            break;
+        }
         const currentScore = getScore(i, currentFloor, destDir);
 
         if (Math.abs(currentScore) < minScore) {
