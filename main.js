@@ -10,9 +10,9 @@ const FLOOR_REACH_DURATION = 2000; // ms
 const floorEls = [];
 const elevators = [];
 const STATES = {
-    DOWN: -1,
     IDLE: 0,
-    UP: 1,
+    DOWN: 1,
+    UP: 2,
 };
 
 const params = new URLSearchParams(window.location.search);
@@ -111,9 +111,12 @@ const closeDoors = (elevatorIdx) => {
     elevators[elevatorIdx].el.classList.remove("open");
 
     setTimeout(() => {
+        const requestedDir = elevator.requestedDirs.pop();
+        elevator.destinations[requestedDir] = elevator.destinations[requestedDir].filter((dest) => dest !== elevator.floor);
         elevator.state = STATES.IDLE;
+
         updateElevatorIndicator(elevatorIdx);
-        reachFloor(elevatorIdx, elevator.requestedDirs.pop());
+        reachFloor(elevatorIdx, requestedDir);
     }, MOVE_LIFT_AFTER_DOOR_CLOSE_DURATION);
 };
 
@@ -145,7 +148,6 @@ const callback = (elevatorIdx, lastFloor) => {
 
     let requestedDir = elevator.requestedDirs.at(-1);
     if (elevator.destinations[requestedDir].includes(lastFloor)) {
-        elevator.destinations[requestedDir] = elevator.destinations[requestedDir].filter((dest) => dest !== lastFloor);
         setTimeout(() => openDoors(elevatorIdx), OPEN_DOOR_AFTER_DURATION);
         resetButtons(lastFloor, requestedDir);
 
@@ -232,13 +234,9 @@ const calculateTimeNeeded = (elevatorIdx, destinations) => {
 const getTimeNeeded = (elevatorIdx) => {
     let totalTime = 0;
     let elevator = elevators[elevatorIdx];
-    let elevatorDir = elevator.state;
 
-    if (!elevatorDir) return 0;
-
-    totalTime += calculateTimeNeeded(elevatorIdx, elevator.destinations[elevatorDir]);
-    elevatorDir = elevatorDir === STATES.UP ? STATES.DOWN : STATES.UP;
-    totalTime += calculateTimeNeeded(elevatorIdx, elevator.destinations[elevatorDir]);
+    totalTime += calculateTimeNeeded(elevatorIdx, elevator.destinations[STATES.UP]);
+    totalTime += calculateTimeNeeded(elevatorIdx, elevator.destinations[STATES.DOWN]);
 
     return totalTime;
 };
@@ -252,7 +250,7 @@ const getScore = (elevatorIdx, requestedFloor, requestedDir) => {
 
     let score = Math.abs(requestedFloor - elevator.floor);
     if (elevatorDir === requiredDir) score--;
-    else if (elevatorDir !== STATES.IDLE) {
+    else if ([STATES.UP, STATES.DOWN].includes(elevatorDir)) {
         let lastDestination = elevator.destinations[elevatorDir].at(-1);
         if (lastDestination) {
             score += 2 * Math.abs(elevator.floor - lastDestination);
